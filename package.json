@@ -1,0 +1,21 @@
+{
+  "name": "farmconnect",
+  "version": "1.0.0",
+  "description": "FarmConnect - Direct Farmer-to-Buyer Marketplace with AI/ML Price Prediction (XGBoost/LSTM), TOPSIS Market Matcher, and Unsold Crop Salvage Engine",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "setup:ml": "python -m venv ml_models/.venv && ml_models/.venv/Scripts/pip install -r ml_models/requirements.txt"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.7.0",
+    "mongoose": "^8.3.1"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
