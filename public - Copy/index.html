@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FarmConnect - Direct Farmer-to-Buyer AI Marketplace 🚜</title>
+  <meta name="description" content="FarmConnect connects farmers directly to wholesale buyers and mandis with zero middlemen. Features AI Price Forecasts (XGBoost/LSTM), TOPSIS Market Finder, Unsold Crop Salvage, and Price Alerts in Tamil & English.">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Noto Sans Tamil -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase JS SDK (compat build – exposes global `firebase` object) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+
+  <!-- Chart.js for High-Precision Price Forecast Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Application Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ================= TOP NAVIGATION BAR ================= -->
+  <header class="top-navbar">
+    <div class="nav-container">
+      <div class="brand-section">
+        <!-- Tractor Logo beside the app name as explicitly requested -->
+        <div class="tractor-logo-box" title="FarmConnect Tractor Logo" id="appTractorLogo">
+          <svg class="tractor-svg" viewBox="0 0 24 24">
+            <!-- Detailed Tractor Vector Silhouette -->
+            <path d="M19 13.5a3.5 3.5 0 1 0 3.5 3.5 3.5 3.5 0 0 0-3.5-3.5zm0 5a1.5 1.5 0 1 1 1.5-1.5 1.5 1.5 0 0 1-1.5 1.5zM6 14.5a2.5 2.5 0 1 0 2.5 2.5 2.5 2.5 0 0 0-2.5-2.5zm0 3.5a1 1 0 1 1 1-1 1 1 0 0 1-1 1zM21 9h-2V5h-3v3H9.42l-1.3-2.6A2 2 0 0 0 6.33 4.25L3 5.4v2.1l2.5-.86L7 9.5V13h2.15a4.49 4.49 0 0 1 4.35-3h3.5v-1h2v1h2V9zM16 9h-4.5a2.5 2.5 0 0 0-2.5 2.5V13h7V9z"/>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-title-row">
+            <h1 class="brand-name">Farm<span>Connect</span></h1>
+            <span class="brand-tamil-badge" data-i18n="appSubBadge">ஃபார்ம்கனெக்ட்</span>
+          </div>
+          <span class="brand-subtitle" data-i18n="appTagline">Direct Farmer-to-Buyer Marketplace • Zero Middlemen</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <!-- Sign In / Sign Up Trigger Button -->
+        <button class="lang-btn auth-nav-btn" id="openAuthModalBtn" title="Sign In or Create Account">
+          👤 <span id="navAuthLabel" data-i18n="signInBtn">Sign In / Register</span>
+        </button>
+
+        <!-- Language Switcher Toggle (English / தமிழ்) -->
+        <button class="lang-btn" id="langToggleBtn" title="Switch between English and Tamil">
+          🇮🇳 தமிழ்
+        </button>
+
+        <!-- Price Alerts Quick Badge Indicator -->
+        <button class="lang-btn" onclick="switchTab('alerts')" title="Price Alerts">
+          🔔 <span id="headerAlertCount">2</span>
+        </button>
+
+        <!-- Add Crop Modal Trigger -->
+        <button class="btn-add-crop" id="openAddCropModalBtn">
+          🚜 <span data-i18n="addCropBtn">+ Add New Crop</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= FARMER PROFILE & QUICK STATS BAR ================= -->
+  <section class="profile-bar-section">
+    <div class="profile-bar-container">
+      <div class="farmer-id-card">
+        <div class="farmer-avatar" id="barFarmerAvatar">🌾</div>
+        <div class="farmer-details">
+          <h3>
+            <span id="farmerProfileName">Murugan Palanisamy</span> 
+            <span class="verified-icon" title="Verified Producer">✓</span>
+          </h3>
+          <div class="farmer-meta-inline">
+            <span>📍 <span id="farmerProfileLocation">Thanjavur, Tamil Nadu</span></span>
+            <span>🌱 <span id="farmerProfileLand">5.5 Acres</span></span>
+            <span>⭐ <span id="farmerProfileTrust">4.9 / 5.0 Rating</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="farmer-quick-stats">
+        <div class="stat-pill">
+          <span class="stat-label" data-i18n="statActiveListings">Active Listings</span>
+          <span class="stat-value" id="statActiveListings">4</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label" data-i18n="statTotalQuantity">Produce in Stock</span>
+          <span class="stat-value" id="statTotalQuantity">180 Qtl</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label" data-i18n="statEstimatedValue">Estimated Market Value</span>
+          <span class="stat-value text-success" id="statEstimatedValue">₹5,58,000</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label" data-i18n="statDirectBuyers">Direct Buyers Nearby</span>
+          <span class="stat-value" id="statDirectBuyers">5 Active</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MAIN TAB NAVIGATION ================= -->
+  <nav class="main-tabs-bar">
+    <div class="tabs-container">
+      <button class="nav-tab-btn active" data-tab="my-crops">
+        🌾 <span data-i18n="tabMyCrops">My Crops & Listings</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="price-predict">
+        📈 <span data-i18n="tabPricePredict">AI Price Forecast (XGBoost/LSTM)</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="topsis">
+        🏆 <span data-i18n="tabTopsis">Best Market Finder (TOPSIS)</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="salvage">
+        ♻️ <span data-i18n="tabSalvage">Unsold Crop Salvage Engine</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="buyers">
+        🤝 <span data-i18n="tabBuyers">Nearby Buyers</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="alerts">
+        🔔 <span data-i18n="tabAlerts">Price Alerts</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="profile">
+        👤 <span data-i18n="tabProfile">Farmer Profile & Account</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ================= APP MAIN CONTAINER ================= -->
+  <main class="app-main">
+
+    <!-- 1. MY CROPS & LISTINGS TAB -->
+    <section class="tab-section active" id="tab-my-crops">
+      <div class="section-hero">
+        <h2 data-i18n="myCropsTitle">My Harvest Listings</h2>
+        <p data-i18n="myCropsSubtitle">Add your harvested crops to connect directly with wholesale buyers, retail chains, and food mills.</p>
+      </div>
+
+      <div class="crops-grid" id="cropListingsContainer">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- 2. AI PRICE PREDICTION (XGBOOST & LSTM) TAB -->
+    <section class="tab-section" id="tab-price-predict">
+      <div class="section-hero">
+        <h2 data-i18n="aiPredictTitle">AI Price Forecast Engine (XGBoost & LSTM)</h2>
+        <p data-i18n="aiPredictSub">Hybrid Machine Learning architecture combining Long Short-Term Memory (LSTM) sequence trends with Extreme Gradient Boosted Trees (XGBoost) for supply arrival & weather anomalies.</p>
+      </div>
+
+      <!-- AI Controls -->
+      <div class="ai-controls-card">
+        <div class="form-group-inline">
+          <label class="form-label" data-i18n="selectCropToPredict">Select Crop for AI Valuation:</label>
+          <select id="aiCropSelector" class="form-select" onchange="loadAIPricePrediction(this.value, document.getElementById('aiForecastDays').value)">
+            <option value="Tomato (Hybrid Red)">Tomato (Hybrid Red) • தக்காளி</option>
+            <option value="Paddy (Ponni Rice)">Paddy (Ponni Rice) • நெல்</option>
+            <option value="Small Onion (Shallots)">Small Onion (Shallots) • சின்ன வெங்காயம்</option>
+            <option value="Banana (Nendran)">Banana (Nendran) • வாழைப்பழம்</option>
+            <option value="Turmeric (Erode Finger)">Turmeric (Erode Finger) • மஞ்சள்</option>
+            <option value="Red Chilli (Guntur / Ramanathapuram)">Red Chilli • மிளகாய்</option>
+          </select>
+        </div>
+
+        <div class="form-group-inline">
+          <label class="form-label" data-i18n="forecastHorizon">Forecast Horizon:</label>
+          <select id="aiForecastDays" class="form-select" onchange="loadAIPricePrediction(document.getElementById('aiCropSelector').value, this.value)">
+            <option value="7">Next 7 Days (அடுத்த 7 நாட்கள்)</option>
+            <option value="15" selected>Next 15 Days (அடுத்த 15 நாட்கள்)</option>
+            <option value="30">Next 30 Days (அடுத்த 30 நாட்கள்)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" onclick="loadAIPricePrediction(document.getElementById('aiCropSelector').value, document.getElementById('aiForecastDays').value)">
+          ⚡ <span data-i18n="runPredictionBtn">Run AI Model Forecast</span>
+        </button>
+      </div>
+
+      <div id="aiPredictionContent">
+        <!-- Top Metrics -->
+        <div class="ai-metrics-grid">
+          <div class="ai-metric-card">
+            <span class="ai-metric-title" data-i18n="currentPriceLabel">Current Mandi Rate</span>
+            <span class="ai-metric-value" id="metricCurrentPrice">₹3,200</span>
+            <span class="ai-metric-sub">Per Quintal (₹32.00/kg)</span>
+          </div>
+
+          <div class="ai-metric-card">
+            <span class="ai-metric-title" data-i18n="predictedPriceLabel">AI Predicted Rate (7-Day)</span>
+            <span class="ai-metric-value" id="metricPredictedPrice">₹3,460</span>
+            <span class="ai-metric-sub" id="metricPredictedChange">+₹260 (+8.1%)</span>
+          </div>
+
+          <div class="ai-metric-card">
+            <span class="ai-metric-title" data-i18n="mspBenchmarkLabel">Govt. MSP Benchmark</span>
+            <span class="ai-metric-value" id="metricMspPrice">₹1,800</span>
+            <span class="ai-metric-sub">Guaranteed Floor Price</span>
+          </div>
+
+          <div class="ai-metric-card">
+            <span class="ai-metric-title" data-i18n="modelConfidenceLabel">Model Confidence (MAPE)</span>
+            <span class="ai-metric-value text-success" id="metricConfidence">94.6% (3.4% MAPE)</span>
+            <span class="ai-metric-sub">High Statistical Confidence</span>
+          </div>
+        </div>
+
+        <!-- Strategic Advisory Box -->
+        <div class="recommendation-card badge-hold" id="aiRecommendationBox">
+          <!-- Filled by ai_view.js -->
+        </div>
+
+        <!-- Split Chart & XGBoost Drivers -->
+        <div class="ai-insights-split">
+          <div class="chart-card-box">
+            <h4 data-i18n="historicalVsForecast">Historical Trend vs LSTM Projection Window</h4>
+            <div class="chart-canvas-wrapper">
+              <canvas id="priceForecastChart"></canvas>
+            </div>
+          </div>
+
+          <div class="xgboost-card-box">
+            <h4 data-i18n="featureImportanceTitle">XGBoost Exogenous Drivers & Weightings</h4>
+            <p class="section-sub">Tree gradient boosting regression evaluating external market arrival volumes, weather shocks, and transport cost index:</p>
+            <div class="xgboost-features-box" id="xgboostFeaturesList">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. BEST MARKET & BUYER OPTIMIZER (TOPSIS) TAB -->
+    <section class="tab-section" id="tab-topsis">
+      <div class="section-hero">
+        <h2 data-i18n="topsisTitle">Best Market & Buyer Optimizer (TOPSIS)</h2>
+        <p data-i18n="topsisSub">Multi-Criteria Decision Making (TOPSIS) ranks prospective buyers and mandis based on Price Offered, Demand Urgency, Distance, and Logistics Cost.</p>
+      </div>
+
+      <!-- Controls & Weight Sliders -->
+      <div class="topsis-controls-bar">
+        <div class="ai-controls-card" style="margin-bottom: 0; box-shadow: none; padding: 0;">
+          <div class="form-group-inline">
+            <label class="form-label">Crop Alternative:</label>
+            <select id="topsisCropSelect" class="form-select" onchange="loadTOPSISRankings()">
+              <option value="Tomato (Hybrid Red)">Tomato (Hybrid Red)</option>
+              <option value="Paddy (Ponni Rice)">Paddy (Ponni Rice)</option>
+              <option value="Small Onion (Shallots)">Small Onion (Shallots)</option>
+              <option value="Banana (Nendran)">Banana (Nendran)</option>
+            </select>
+          </div>
+          <div class="form-group-inline">
+            <label class="form-label">Quantity to Sell (Quintals):</label>
+            <input type="number" id="topsisQuantityInput" class="form-input" value="50" min="5" max="1000" onchange="loadTOPSISRankings()" />
+          </div>
+          <button class="btn btn-primary" onclick="loadTOPSISRankings()">
+            🔄 <span data-i18n="recalculateTopsisBtn">Re-Rank Alternatives</span>
+          </button>
+        </div>
+
+        <div class="sliders-grid">
+          <div class="slider-group">
+            <div class="slider-label-row">
+              <span data-i18n="weightPriceLabel">Price Weight (Benefit):</span>
+              <span id="priceWeightVal">40%</span>
+            </div>
+            <input type="range" id="weightPriceSlider" min="0.1" max="0.8" step="0.05" value="0.40" 
+              oninput="document.getElementById('priceWeightVal').innerText = Math.round(this.value * 100) + '%'; loadTOPSISRankings();">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label-row">
+              <span data-i18n="weightDemandLabel">Demand Weight (Benefit):</span>
+              <span id="demandWeightVal">25%</span>
+            </div>
+            <input type="range" id="weightDemandSlider" min="0.1" max="0.6" step="0.05" value="0.25"
+              oninput="document.getElementById('demandWeightVal').innerText = Math.round(this.value * 100) + '%'; loadTOPSISRankings();">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label-row">
+              <span data-i18n="weightDistanceLabel">Distance Weight (Cost):</span>
+              <span id="distanceWeightVal">20%</span>
+            </div>
+            <input type="range" id="weightDistanceSlider" min="0.05" max="0.5" step="0.05" value="0.20"
+              oninput="document.getElementById('distanceWeightVal').innerText = Math.round(this.value * 100) + '%'; loadTOPSISRankings();">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label-row">
+              <span data-i18n="weightTransportLabel">Transport Cost Weight (Cost):</span>
+              <span id="transportWeightVal">15%</span>
+            </div>
+            <input type="range" id="weightTransportSlider" min="0.05" max="0.5" step="0.05" value="0.15"
+              oninput="document.getElementById('transportWeightVal').innerText = Math.round(this.value * 100) + '%'; loadTOPSISRankings();">
+          </div>
+        </div>
+      </div>
+
+      <div id="topsisResultsContainer">
+        <!-- Rendered dynamically by topsis_view.js -->
+      </div>
+    </section>
+
+    <!-- 4. UNSOLD CROP SALVAGE & ALLOCATION TAB (DECISION TREE) -->
+    <section class="tab-section" id="tab-salvage">
+      <div class="section-hero">
+        <h2 data-i18n="salvageTitle">Unsold Crop Salvage & Resource Allocation</h2>
+        <p data-i18n="salvageSub">Eliminate distress selling and post-harvest wastage. Our Decision Tree & Rule-Based AI routes unsold produce to food processors, cattle feed cooperatives, food bank donation, vermicompost, or clean biogas.</p>
+      </div>
+
+      <!-- Decision Tree Parameter Inputs -->
+      <div class="salvage-inputs-bar">
+        <div class="salvage-inputs-grid">
+          <div class="form-group-inline">
+            <label class="form-label" data-i18n="cropName">Crop Name:</label>
+            <select id="salvageCropSelect" class="form-select">
+              <option value="Tomato (Hybrid Red)">Tomato (Hybrid Red) • தக்காளி</option>
+              <option value="Banana (Nendran)">Banana (Nendran) • வாழைப்பழம்</option>
+              <option value="Small Onion (Shallots)">Small Onion (Shallots) • வெங்காயம்</option>
+              <option value="Paddy (Ponni Rice)">Paddy (Ponni Rice) • நெல்</option>
+            </select>
+          </div>
+
+          <div class="form-group-inline">
+            <label class="form-label" data-i18n="quantity">Unsold Quantity (Quintals):</label>
+            <input type="number" id="salvageQuantityInput" class="form-input" value="15" min="1" max="500">
+          </div>
+
+          <div class="form-group-inline">
+            <label class="form-label" data-i18n="daysSinceHarvestLabel">Days Since Harvest:</label>
+            <input type="number" id="salvageDaysInput" class="form-input" value="4" min="0" max="60">
+          </div>
+
+          <div class="form-group-inline">
+            <label class="form-label" data-i18n="damagePercentLabel">Damage / Blemish (%):</label>
+            <input type="number" id="salvageDamageInput" class="form-input" value="22" min="0" max="100">
+          </div>
+
+          <div class="form-group-inline">
+            <label class="form-label" data-i18n="quality">Current Quality Grade:</label>
+            <select id="salvageGradeSelect" class="form-select">
+              <option value="Grade B">Grade B (Commercial)</option>
+              <option value="Grade C" selected>Grade C / Softened / Bruised</option>
+              <option value="Spoiling">Spoiling / High Moisture Pulp</option>
+              <option value="Grade A">Grade A / Surplus Edible</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" onclick="evaluateUnsoldCrop()">
+            🌳 <span data-i18n="runDecisionTreeBtn">Evaluate Salvage Path</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="salvageResultContainer">
+        <!-- Rendered dynamically by salvage_view.js -->
+      </div>
+    </section>
+
+    <!-- 5. NEARBY BUYERS DIRECTORY TAB -->
+    <section class="tab-section" id="tab-buyers">
+      <div class="section-hero">
+        <h2 data-i18n="buyersTitle">Direct Wholesale Buyers & Mandi Hubs</h2>
+        <p data-i18n="buyersSub">Pre-verified agro-processors, supermarket chains, and wholesale merchants offering direct procurement.</p>
+      </div>
+
+      <div class="buyers-filter-bar">
+        <label class="form-label" data-i18n="filterDistrict">Filter by District:</label>
+        <select id="buyerDistrictFilter" class="form-select" style="max-width: 260px;">
+          <option value="" data-i18n="allDistricts">All Tamil Nadu Mandis</option>
+          <option value="Thanjavur">Thanjavur District (தஞ்சாவூர்)</option>
+          <option value="Dindigul">Dindigul District (திண்டுக்கல்)</option>
+          <option value="Coimbatore">Coimbatore District (கோயம்புத்தூர்)</option>
+          <option value="Madurai">Madurai District (மதுரை)</option>
+          <option value="Chennai">Chennai Koyambedu (சென்னை)</option>
+        </select>
+      </div>
+
+      <div class="buyers-grid" id="buyersListContainer">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- 6. PRICE ALERTS TAB -->
+    <section class="tab-section" id="tab-alerts">
+      <div class="alerts-top-bar">
+        <div>
+          <h2 data-i18n="alertsTitle">Smart Price Alerts & Market Notifications</h2>
+          <p data-i18n="alertsSub">Set automated SMS and in-app triggers when crop prices cross your target thresholds in local mandis.</p>
+        </div>
+        <button class="btn btn-primary" id="openSetAlertModalBtn">
+          🔔 <span data-i18n="createNewAlertBtn">+ Set New Price Alert</span>
+        </button>
+      </div>
+
+      <div class="alerts-list-wrap" id="alertsListContainer">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- 7. FARMER PROFILE & ACCOUNT TAB -->
+    <section class="tab-section" id="tab-profile">
+      <div class="section-hero">
+        <h2 data-i18n="farmerProfile">Farmer Profile & Account Settings</h2>
+        <p>Manage your farmer credentials, farm details, crops cultivated, and payment settlement accounts.</p>
+      </div>
+
+      <div class="profile-card-layout">
+        <!-- Profile Identity Card -->
+        <div class="profile-identity-card">
+          <div class="profile-big-avatar" id="profileBigAvatar">🌾</div>
+          <h3 id="profileCardFullName">Murugan Palanisamy</h3>
+          <span class="badge badge-success" id="profileCardRole">Verified Delta Farmer</span>
+          <p class="profile-card-loc" id="profileCardLocation">📍 Thanjavur, Tamil Nadu</p>
+          
+          <div class="profile-trust-box">
+            <span class="trust-score-val" id="profileCardTrustScore">⭐ 4.9 / 5.0</span>
+            <span class="trust-score-label" data-i18n="trustScoreLabel">Trust Rating (Farmer Authenticated)</span>
+          </div>
+
+          <div class="profile-actions-col">
+            <button class="btn btn-outline-primary" style="width: 100%;" onclick="openAuthModal('signin')">
+              🔄 <span data-i18n="switchAccountBtn">Switch Account</span>
+            </button>
+            <button class="btn btn-outline-danger" style="width: 100%;" onclick="logoutUser()">
+              🚪 <span data-i18n="signOutBtn">Sign Out</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Editable Details Form Card -->
+        <div class="profile-form-card">
+          <div class="card-section-title">
+            <h4>🌾 Farm & Personal Information</h4>
+            <span class="section-sub">Keep this updated so buyers and Mandi syndicates can coordinate directly.</span>
+          </div>
+
+          <form id="editProfileForm">
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label" data-i18n="fullName">Full Name *</label>
+                <input type="text" id="profFormName" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="phoneLabel">Mobile Phone Number *</label>
+                <input type="tel" id="profFormPhone" class="form-input" required>
+              </div>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" id="profFormEmail" class="form-input" placeholder="e.g. farmer@farmconnect.org">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="districtLabel">Location / District *</label>
+                <input type="text" id="profFormLocation" class="form-input" required>
+              </div>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label" data-i18n="landSizeInputLabel">Farm Land Size (Acres)</label>
+                <input type="number" id="profFormLandSize" class="form-input" step="0.1" min="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="cropsGrownLabel">Primary Crops Grown</label>
+                <input type="text" id="profFormCropsGrown" class="form-input" placeholder="e.g. Paddy, Banana, Chilli">
+              </div>
+            </div>
+
+            <!-- Settlement Banking Details -->
+            <div class="card-section-title" style="margin-top: 1.5rem;">
+              <h4>💳 Direct Buyer Settlement & Banking</h4>
+              <span class="section-sub">Buyers can deposit instant token payments and harvest settlements to this account.</span>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label">UPI ID for Direct Instant Payment</label>
+                <input type="text" id="profFormUpi" class="form-input" value="9842112345@upi" placeholder="e.g. yourname@oksbi">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bank Name & Branch</label>
+                <input type="text" id="profFormBank" class="form-input" value="Indian Overseas Bank, Kumbakonam" placeholder="e.g. SBI Main Branch">
+              </div>
+            </div>
+
+            <div style="margin-top: 1.25rem; display: flex; justify-content: flex-end;">
+              <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.75rem;">
+                💾 <span data-i18n="saveProfileBtn">Save Profile Changes</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= ADD CROP MODAL ================= -->
+  <div class="modal-backdrop" id="addCropModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 data-i18n="modalAddCropTitle">List Your Harvested Crop</h3>
+        <button class="modal-close-btn" id="closeAddCropModalBtn">&times;</button>
+      </div>
+      <form id="addCropForm">
+        <div class="modal-body">
+          <p class="section-sub" data-i18n="modalAddCropSub">Provide accurate harvest details to receive the best buyer offers and AI price benchmarks.</p>
+          
+          <div class="form-group">
+            <label class="form-label" data-i18n="cropName">Crop Name & Variety *</label>
+            <input type="text" id="formCropName" class="form-input" placeholder="e.g. Tomato (Hybrid Red) / Ponni Paddy" required>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label" data-i18n="quantity">Quantity *</label>
+              <input type="number" id="formQuantity" class="form-input" placeholder="e.g. 50" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="unit">Unit</label>
+              <select id="formUnit" class="form-select">
+                <option value="Quintals">Quintals (குவிண்டால் - 100kg)</option>
+                <option value="Kg">Kilograms (கிலோ)</option>
+                <option value="Tons">Metric Tons (டன்)</option>
+                <option value="Crates">Crates (பெட்டி - 25kg)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label" data-i18n="quality">Quality Grade</label>
+              <select id="formQuality" class="form-select">
+                <option value="Grade A+">Grade A+ (Premium / Export Quality)</option>
+                <option value="Grade A" selected>Grade A (Table Quality)</option>
+                <option value="Grade B">Grade B (Standard Commercial)</option>
+                <option value="Fair">Fair (Minor Blemishes)</option>
+                <option value="Processing">Processing Grade (Juice / Pulp)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="expectedPrice">Expected Price (₹ per Unit) *</label>
+              <input type="number" id="formPrice" class="form-input" placeholder="e.g. 3200" required>
+            </div>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label" data-i18n="location">Location / Village / Mandi *</label>
+              <input type="text" id="formLocation" class="form-input" placeholder="e.g. Kumbakonam, Thanjavur" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="harvestDate">Harvest Date *</label>
+              <input type="date" id="formHarvestDate" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" data-i18n="descriptionLabel">Crop Description & Quality Notes</label>
+            <textarea id="formDescription" class="form-input" rows="3" placeholder="Mention moisture level, packaging, organic certification, or harvest morning timing..."></textarea>
+          </div>
+
+          <!-- Crop Image & Photo Selection (Firebase Storage) -->
+          <div class="form-group">
+            <label class="form-label" data-i18n="cropImageLabel">Crop Image / Photo (Firebase Storage Upload)</label>
+            
+            <!-- Hidden File Input -->
+            <input type="file" id="formCropImageInput" accept="image/*" style="display: none;">
+            
+            <!-- Mobile / Desktop Camera & Gallery Selection Buttons -->
+            <div class="crop-image-picker-row">
+              <button type="button" class="btn btn-outline-primary btn-sm" id="btnCropCamera">
+                📷 <span data-i18n="takeCameraBtn">Take Photo (Camera)</span>
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="btnCropGallery">
+                🖼️ <span data-i18n="chooseGalleryBtn">Choose from Gallery</span>
+              </button>
+            </div>
+
+            <!-- Upload Drop Zone & Real-Time Image Preview -->
+            <div class="crop-image-upload-zone" id="cropImageDropZone">
+              <div class="upload-zone-content" id="cropUploadZonePrompt">
+                <span class="upload-icon">📸</span>
+                <p class="upload-prompt-text">Tap or drag photo here to select image</p>
+                <small class="upload-subtext" data-i18n="imageUploadHint">Supports JPG, PNG, WEBP. Saved directly to Firebase Storage.</small>
+              </div>
+
+              <!-- Real-Time Image Preview Card -->
+              <div class="crop-image-preview-wrap" id="cropImagePreviewWrap" style="display: none;">
+                <img id="cropImagePreview" src="" alt="Crop Preview" class="crop-img-thumb" />
+                <div class="preview-details">
+                  <span class="preview-filename" id="cropImageFileName">photo.jpg</span>
+                  <span class="preview-filesize" id="cropImageFileSize">1.2 MB</span>
+                  <span class="preview-badge">Ready for Upload 🔥</span>
+                </div>
+                <button type="button" class="btn-remove-preview" id="btnRemoveCropImage" title="Remove photo">&times;</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary-light" onclick="document.getElementById('addCropModal').classList.remove('show')" data-i18n="cancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="saveListingBtn">Publish Crop Listing 🚜</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= SET PRICE ALERT MODAL ================= -->
+  <div class="modal-backdrop" id="setAlertModal">
+    <div class="modal-window" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>🔔 Set Market Price Alert</h3>
+        <button class="modal-close-btn" id="closeAlertModalBtn">&times;</button>
+      </div>
+      <form id="setAlertForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Crop Name:</label>
+            <select id="alertCropSelect" class="form-select">
+              <option value="Tomato (Hybrid Red)">Tomato (Hybrid Red)</option>
+              <option value="Paddy (Ponni Rice)">Paddy (Ponni Rice)</option>
+              <option value="Small Onion (Shallots)">Small Onion (Shallots)</option>
+              <option value="Banana (Nendran)">Banana (Nendran)</option>
+              <option value="Turmeric (Erode Finger)">Turmeric (Erode Finger)</option>
+              <option value="Red Chilli">Red Chilli</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Target Mandi:</label>
+            <input type="text" id="alertMandiInput" class="form-input" value="Koyambedu Wholesale Hub" required>
+          </div>
+
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label">Target Price (₹):</label>
+              <input type="number" id="alertTargetPriceInput" class="form-input" placeholder="e.g. 3500" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Trigger Condition:</label>
+              <select id="alertConditionSelect" class="form-select">
+                <option value="above">Price rises above (▲)</option>
+                <option value="below">Price drops below (▼)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary-light" onclick="document.getElementById('setAlertModal').classList.remove('show')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Activate Alert 🔔</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= AUTH MODAL (SIGN IN & SIGN UP) ================= -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-window" style="max-width: 520px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.5rem;">🚜</span>
+          <div>
+            <h3 data-i18n="authModalTitle">FarmConnect Portal</h3>
+            <span class="brand-subtitle" style="color: var(--muted-text);" data-i18n="authModalSub">Direct farmer trading with AI price intelligence</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeAuthModalBtn">&times;</button>
+      </div>
+
+      <!-- Auth Tabs: Sign In vs Sign Up -->
+      <div class="auth-tab-switcher">
+        <button type="button" class="auth-tab-btn active" id="authTabSignInBtn" onclick="switchAuthTab('signin')">
+          <span data-i18n="tabSignIn">Sign In</span>
+        </button>
+        <button type="button" class="auth-tab-btn" id="authTabSignUpBtn" onclick="switchAuthTab('signup')">
+          <span data-i18n="tabSignUp">Create New Account (Sign Up)</span>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding-top: 1rem;">
+
+        <!-- 1. SIGN IN FORM -->
+        <div id="authSignInPanel">
+          <form id="signInForm">
+            <div class="form-group">
+              <label class="form-label" data-i18n="emailLabel">Email Address *</label>
+              <input type="email" id="signInEmail" class="form-input" placeholder="e.g. farmer@farmconnect.org" required>
+            </div>
+
+            <div class="form-group" style="font-size:0.82rem; color: var(--text-muted); margin-top: -0.5rem;">
+              <span>Don't have an email? Use phone &amp; password below for demo mode.</span>
+            </div>
+
+            <div class="form-group" style="display:none;">
+              <!-- Phone fallback hidden – app.js reads whichever is present -->
+              <input type="tel" id="signInPhone" class="form-input" placeholder="Phone fallback">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" data-i18n="passwordLabel">Password *</label>
+              <input type="password" id="signInPassword" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem;" data-i18n="enterSignInBtn">
+              Sign In to FarmConnect 🚜
+            </button>
+          </form>
+
+          <!-- Quick 1-Click Demo Profiles -->
+          <div class="demo-auth-box">
+            <span class="demo-auth-title" data-i18n="orQuickDemoLogin">Or 1-Click Instant Demo Login:</span>
+            <div class="demo-buttons-grid">
+              <button type="button" class="btn btn-primary-light btn-sm" onclick="quickLoginDemo('farmer1')">
+                🌾 Murugan (Farmer - Thanjavur)
+              </button>
+              <button type="button" class="btn btn-primary-light btn-sm" onclick="quickLoginDemo('farmer2')">
+                🌾 Selvi (Farmer - Dindigul)
+              </button>
+              <button type="button" class="btn btn-primary-light btn-sm" onclick="quickLoginDemo('buyer1')">
+                🏢 Annamalai Agro (Buyer)
+              </button>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.88rem;">
+            <a href="javascript:void(0)" onclick="switchAuthTab('signup')" style="color: var(--primary); font-weight: 600;" data-i18n="noAccountPrompt">
+              Don't have an account yet? Register now
+            </a>
+          </div>
+        </div>
+
+        <!-- 2. SIGN UP FORM -->
+        <div id="authSignUpPanel" style="display: none;">
+          <form id="signUpForm">
+            <!-- Role Selection -->
+            <div class="form-group">
+              <label class="form-label" data-i18n="roleLabel">I am registering as a...</label>
+              <div class="role-selector-row">
+                <label class="role-radio-label active" id="roleLabelFarmer">
+                  <input type="radio" name="signupRole" value="farmer" checked onchange="toggleRoleFields('farmer')">
+                  🌾 Farmer / Producer
+                </label>
+                <label class="role-radio-label" id="roleLabelBuyer">
+                  <input type="radio" name="signupRole" value="buyer" onchange="toggleRoleFields('buyer')">
+                  🏢 Wholesale Buyer / Mill
+                </label>
+              </div>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label" data-i18n="fullName">Full Name *</label>
+                <input type="text" id="signUpName" class="form-input" placeholder="e.g. Senthil Kumar" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="phoneLabel">Mobile Phone</label>
+                <input type="tel" id="signUpPhone" class="form-input" placeholder="e.g. 9443198765">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" data-i18n="emailLabel">Email Address * (used to sign in)</label>
+              <input type="email" id="signUpEmail" class="form-input" placeholder="e.g. farmer@gmail.com" required>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label" data-i18n="passwordLabel">Password *</label>
+                <input type="password" id="signUpPassword" class="form-input" placeholder="Choose a password" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="districtLabel">District / Location *</label>
+                <input type="text" id="signUpLocation" class="form-input" placeholder="e.g. Coimbatore, Tamil Nadu" required>
+              </div>
+            </div>
+
+            <!-- Dynamic Farmer Field: Land Size -->
+            <div class="form-group" id="groupLandSize">
+              <label class="form-label" data-i18n="landSizeInputLabel">Farm Land Size (Acres)</label>
+              <input type="number" id="signUpLandSize" class="form-input" placeholder="e.g. 4.0" step="0.5" min="0.5">
+            </div>
+
+            <!-- Dynamic Buyer Field: Company Name -->
+            <div class="form-group" id="groupCompany" style="display: none;">
+              <label class="form-label" data-i18n="companyNameLabel">Business / Company Name</label>
+              <input type="text" id="signUpCompany" class="form-input" placeholder="e.g. Kongu Agro Exporters">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" data-i18n="cropsGrownLabel">Primary Crops Cultivated / Procured</label>
+              <input type="text" id="signUpCrops" class="form-input" placeholder="e.g. Paddy, Tomato, Onion">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem;" data-i18n="enterSignUpBtn">
+              Register & Create Account 🌾
+            </button>
+          </form>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.88rem;">
+            <a href="javascript:void(0)" onclick="switchAuthTab('signin')" style="color: var(--primary); font-weight: 600;" data-i18n="haveAccountPrompt">
+              Already registered? Sign In here
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <p>🚜 <strong>FarmConnect</strong> — Empowering Farmers with Direct Trade & Explainable AI</p>
+      <p>Developed with Node.js, Express, MongoDB, XGBoost, LSTM & TOPSIS MCDM Optimization</p>
+      <p>© 2026 FarmConnect. Bilingual: English & தமிழ். Built for agricultural prosperity.</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/i18n.js"></script>
+  <script src="js/firebase_auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ai_view.js"></script>
+  <script src="js/topsis_view.js"></script>
+  <script src="js/salvage_view.js"></script>
+  <script src="js/app.js"></script>
+  
+  <script>
+    // Set default harvest date to today's date
+    const harvestInput = document.getElementById('formHarvestDate');
+    if (harvestInput) {
+      harvestInput.value = new Date().toISOString().split('T')[0];
+    }
+  </script>
+</body>
+</html>
